@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estrategia de Costos SCM | Dashboard Interactivo</title>
+    
+    <!-- Librerías Externas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Configuración de Estilo de Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        
+        :root {
+            --bg-light: #fcfaf7;
+            --bg-dark: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        /* Contenedor del Gráfico adaptable */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 320px;
+        }
+
+        .custom-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .custom-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Estilos del Laboratorio de Lógica con soporte táctil estricto */
+        #game-svg {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+        
+        /* Bloquea el scroll del sistema mientras se arrastra en dispositivos móviles */
+        .source-node, .target-node {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            z-index: 10;
+        }
+
+        .node-socket-pulse {
+            animation: socketPulse 2s infinite;
+        }
+
+        @keyframes socketPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        /* Línea de trazo temporal interactivo */
+        .temp-line {
+            stroke-dasharray: 6, 6;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -20;
+            }
+        }
+
+        /* Animación de error al fallar emparejamiento */
+        .card-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 antialiased">
+
+    <!-- Navegación -->
+    <nav class="fixed top-0 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-50 transition-colors">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Identidad de la materia y facilitadora -->
+                <div class="flex items-center gap-3">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtK-l1sSEFvatDEnFBLU4tVSxge2SOueyoTw&s" alt="Logo U" class="h-10 w-auto rounded bg-white p-1" onerror="this.src='https://placehold.co/100x100/0284c7/ffffff?text=SCM'">
+                    <div>
+                        <span class="text-[9px] font-extrabold text-sky-600 dark:text-sky-400 block tracking-widest uppercase">GESTIÓN DE LA CADENA DE SUMINISTRO</span>
+                        <span class="font-extrabold text-slate-800 dark:text-white tracking-tight text-xs sm:text-sm">Costos para Decisiones</span>
+                    </div>
+                </div>
+                
+                <!-- Enlaces de navegación rápida -->
+                <div class="hidden md:flex space-x-6 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <button onclick="scrollToSection('intro')" class="hover:text-sky-600 transition-colors">Estrategia</button>
+                    <button onclick="scrollToSection('analysis')" class="hover:text-sky-600 transition-colors">Simulador</button>
+                    <button onclick="scrollToSection('lab')" class="hover:text-sky-600 transition-colors">Laboratorio</button>
+                </div>
+
+                <!-- Selector de Modo Oscuro y Docente -->
+                <div class="flex items-center gap-4">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-[9px] text-slate-400 uppercase font-bold">Docente del Curso</p>
+                        <p class="text-xs font-bold text-sky-700 dark:text-sky-400">Prof. Dilsa González</p>
+                    </div>
+                    <!-- Botón de Modo Oscuro/Claro -->
+                    <button onclick="toggleDarkMode()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all border border-slate-200 dark:border-slate-700" aria-label="Cambiar Tema">
+                        <i id="theme-icon" class="fas fa-moon text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- PORTADA INTERACTIVA -->
+    <header id="intro" class="pt-24 pb-16 px-4 md:py-32 bg-gradient-to-b from-amber-50/50 via-transparent to-transparent dark:from-slate-900/30">
+        <div class="max-w-4xl mx-auto text-center space-y-6">
+            <span class="px-3.5 py-1.5 bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 text-xs font-extrabold rounded-full uppercase tracking-wider font-mono inline-block">
+                Unidad IV • Toma de Decisiones Estratégicas
+            </span>
+            <h1 class="text-3xl md:text-6xl font-black text-slate-900 dark:text-white leading-tight">
+                Análisis y Clasificación de <span class="text-sky-600 dark:text-sky-400">Costos SCM</span>
+            </h1>
+            <p class="text-sm md:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-light leading-relaxed">
+                En la Gestión de la Cadena de Suministro, entender la estructura de costos no es un ejercicio meramente contable; es el pilar para la rentabilidad de inventarios y el diseño óptimo de la red de valor.
+            </p>
+            
+            <div class="pt-4">
+                <button onclick="scrollToSection('analysis')" class="bg-sky-600 hover:bg-sky-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg shadow-sky-600/20 hover:shadow-sky-600/40 transition-all text-sm uppercase tracking-wider inline-flex items-center gap-2">
+                    <span>Iniciar Simulador de Costos</span>
+                    <i class="fas fa-circle-play"></i>
+                </button>
+            </div>
+
+            <!-- Mosaico de Pilares Estratégicos -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10">
+                <div class="p-6 bg-white dark:bg-slate-900 custom-card rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="w-10 h-10 bg-sky-50 dark:bg-sky-950 text-sky-500 rounded-xl flex items-center justify-center text-lg mb-4">
+                        <i class="fas fa-magnifying-glass"></i>
+                    </div>
+                    <h3 class="font-extrabold text-slate-800 dark:text-white mb-2 text-sm">Visibilidad Operativa</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-light">Identificación precisa de costos fijos, variables, directos e indirectos en la red de valor.</p>
+                </div>
+                <div class="p-6 bg-white dark:bg-slate-900 custom-card rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="w-10 h-10 bg-emerald-50 dark:bg-emerald-950 text-emerald-500 rounded-xl flex items-center justify-center text-lg mb-4">
+                        <i class="fas fa-sliders"></i>
+                    </div>
+                    <h3 class="font-extrabold text-slate-800 dark:text-white mb-2 text-sm">Apalancamiento</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-light">Optimización del costo unitario aprovechando al máximo la capacidad instalada.</p>
+                </div>
+                <div class="p-6 bg-white dark:bg-slate-900 custom-card rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="w-10 h-10 bg-amber-50 dark:bg-amber-950 text-amber-500 rounded-xl flex items-center justify-center text-lg mb-4">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <h3 class="font-extrabold text-slate-800 dark:text-white mb-2 text-sm">Mitigación del Riesgo</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-light">Gestión ágil de las mermas y costos indirectos para consolidar redes logísticas resilientes.</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- SECCIÓN 2: SIMULADOR DE COMPORTAMIENTO (CHART.JS) -->
+    <section id="analysis" class="py-16 px-4 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 transition-colors">
+        <div class="max-w-6xl mx-auto">
+            <div class="mb-12 text-center max-w-2xl mx-auto space-y-2">
+                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white">Análisis Dinámico del Apalancamiento</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-light">Comprende de forma práctica cómo interactúan los costos variables unitarios y los costos fijos totales al modificar la escala de la operación.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <!-- Visualizador del Gráfico -->
+                <div class="lg:col-span-8">
+                    <div class="chart-container bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-inner">
+                        <canvas id="costBehaviorChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Controles del Simulador -->
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="p-5 bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/60 rounded-2xl">
+                        <h4 class="font-extrabold text-amber-900 dark:text-amber-300 mb-2 text-sm flex items-center gap-2">
+                            <i class="fas fa-lightbulb"></i> Concepto Financiero Clave:
+                        </h4>
+                        <p class="text-xs text-amber-800 dark:text-amber-400 leading-relaxed font-light">
+                            Al expandir el <strong>volumen de actividad</strong>, el <strong>Costo Fijo Unitario</strong> disminuye de forma hiperbólica. Esto permite que el margen operativo se amplíe, impulsando la rentabilidad global.
+                        </p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-2">Variar Volumen de Actividad</span>
+                            <input type="range" id="volumeSlider" min="100" max="5000" value="2500" class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-600 mt-2">
+                        </label>
+                        <div class="flex justify-between text-xs md:text-sm font-bold font-mono">
+                            <span class="text-slate-600 dark:text-slate-350">Volumen: <span id="volumeVal" class="text-sky-600 dark:text-sky-400 font-extrabold">2,500</span> u</span>
+                            <span class="text-slate-600 dark:text-slate-350">Costo Total: <span id="totalCostVal" class="text-emerald-600 dark:text-emerald-400 font-extrabold">$0</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN 3: LABORATORIO DE LÓGICA (EL JUEGO CONECTAR PAREJAS) -->
+    <section id="lab" class="py-16 md:py-24 px-4 bg-slate-50 dark:bg-slate-950 transition-colors">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-10 max-w-2xl mx-auto space-y-3">
+                <span class="px-3 py-1 bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 text-xs font-black rounded-full uppercase tracking-wider font-mono inline-block">Laboratorio Académico</span>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white">Conexión Lógica de Parejas SCM</h2>
+                <p class="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-light leading-relaxed">
+                    Pon a prueba tu agilidad operacional. Conecta cada definición con su respectivo concepto financiero. <br>
+                    👉 <strong class="text-sky-600 dark:text-sky-400">Pista para Celulares:</strong> Puedes arrastrar el nodo azul, o simplemente <strong>hacer un tap consecutivo</strong> (tocar un círculo azul y luego su pareja en gris).
+                </p>
+            </div>
+
+            <!-- Tablero de Conexión -->
+            <div class="relative bg-slate-900 dark:bg-slate-950/80 rounded-3xl p-6 md:p-10 border border-slate-800 shadow-2xl min-h-[580px] flex flex-col justify-between overflow-hidden">
+                <!-- SVG Canvas para líneas permanente e interactiva -->
+                <svg id="game-svg" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                
+                <div class="relative z-10 grid grid-cols-2 gap-x-6 gap-y-4 md:gap-y-6 my-auto">
+                    <!-- Columna de Conceptos (Izquierda) -->
+                    <div id="col-concepts" class="flex flex-col gap-3">
+                        <!-- Nodos inyectados con JavaScript -->
+                    </div>
+                    
+                    <!-- Columna de Descripciones (Derecha) -->
+                    <div id="col-desc" class="flex flex-col gap-3">
+                        <!-- Nodos inyectados con JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Barra Inferior de Métricas en Tiempo Real -->
+                <div class="relative z-20 mt-8 mx-auto bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-2.5 rounded-2xl flex items-center gap-6 max-w-xs shadow-lg">
+                    <div class="text-white font-bold text-xs font-mono">Puntos: <span id="score" class="text-emerald-400">0</span></div>
+                    <div class="h-4 w-[1px] bg-white/20"></div>
+                    <div class="text-white font-bold text-xs font-mono">Progreso: <span id="matches" class="text-sky-400">0/8</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN 4: RESULTADOS Y EXPORTACIÓN DEL CERTIFICADO -->
+    <section id="results" class="hidden py-16 px-4 text-center bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-colors">
+        <div class="max-w-2xl mx-auto space-y-6">
+            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-950/60 text-amber-500 dark:text-amber-300 text-3xl rounded-full flex items-center justify-center mx-auto animate-bounce">
+                <i class="fas fa-award"></i>
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black text-slate-900 dark:text-white leading-tight">¡Laboratorio Completado!</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-light max-w-md mx-auto leading-relaxed">
+                Has demostrado comprender de manera impecable el comportamiento, naturaleza e importancia estratégica de la clasificación de costos logísticos en SCM.
+            </p>
+            
+            <div class="max-w-sm mx-auto bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <label for="userName" class="block text-left text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ingresar Nombre del Alumno:</label>
+                <input type="text" id="userName" placeholder="Ej. Juan Pérez" class="w-full px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none text-center font-bold text-slate-800 dark:text-white text-sm">
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-center gap-3">
+                <button onclick="generatePDF()" class="bg-sky-600 hover:bg-sky-700 text-white font-extrabold px-6 py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-600/10">
+                    <i class="fas fa-file-pdf text-sm"></i> Obtener Certificado PDF
+                </button>
+                <button onclick="resetGame()" class="border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-white font-extrabold px-6 py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all">
+                    Reiniciar Reto
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Template Oculto para Certificado Académico -->
+    <div id="cert-container" style="position: absolute; left: -9999px; top: 0; pointer-events: none;">
+        <div id="cert-template" style="width: 800px; height: 600px; padding: 30px; background: white; border: 15px solid #0f172a; position: relative; font-family: 'Inter', sans-serif; text-align: center; box-sizing: border-box;">
+            <div style="border: 2px solid #e2e8f0; height: 100%; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">
+                <h1 style="font-size: 38px; font-weight: 800; color: #0f172a; margin-bottom: 5px; margin-top: 0; letter-spacing: 1px;">CERTIFICADO DE LOGRO</h1>
+                <p style="font-size: 14px; color: #64748b; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; margin: 0;">Gestión Integral de la Cadena de Suministro</p>
+                <div style="width: 80px; height: 3px; background: #0284c7; margin: 20px 0;"></div>
+                <p style="font-size: 14px; color: #94a3b8; margin: 0 0 5px 0;">Se otorga el presente a:</p>
+                <h2 id="cert-user-name" style="font-size: 32px; font-weight: 800; color: #0284c7; margin: 5px 0;">NOMBRE DEL ESTUDIANTE</h2>
+                <p style="font-size: 14px; color: #334155; max-width: 550px; line-height: 1.6; margin: 15px 0 0 0;">
+                    Por su destacada participación, agilidad analítica y dominio en el <strong>Módulo de Clasificación de Costos para la Toma de Decisiones en SCM</strong> con un puntaje sobresaliente en el laboratorio interactivo.
+                </p>
+                <div style="margin-top: 40px; display: flex; justify-content: space-around; width: 100%;">
+                    <div style="text-align: center;">
+                        <div style="width: 140px; border-top: 1px solid #cbd5e1; margin-bottom: 5px;"></div>
+                        <p style="font-size: 11px; font-weight: bold; margin: 0; color: #1e293b;">Prof. Dilsa González</p>
+                        <p style="font-size: 9px; color: #64748b; margin: 0;">Facilitadora Senior SCM</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 140px; border-top: 1px solid #cbd5e1; margin-bottom: 5px;"></div>
+                        <p id="cert-date" style="font-size: 11px; font-weight: bold; margin: 0; color: #1e293b;"></p>
+                        <p style="font-size: 9px; color: #64748b; margin: 0;">Fecha de Emisión</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pie de Página -->
+    <footer class="bg-white dark:bg-slate-950 py-12 px-4 border-t border-slate-200 dark:border-slate-800 transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-slate-800 dark:bg-slate-700 rounded flex items-center justify-center text-white text-[10px]">
+                    <i class="fas fa-boxes-stacked"></i>
+                </div>
+                <span class="font-bold text-slate-800 dark:text-white">SCM LOGIC 2026</span>
+            </div>
+            <p class="text-slate-400 dark:text-slate-500 text-sm">Desarrollado para educación ejecutiva en logística y finanzas.</p>
+        </div>
+    </footer>
+
+    <!-- SCRIPT DE PROGRAMACIÓN LOGÍSTICA DEL JUEGO -->
+    <script>
+        // --- ESTADO GLOBAL ---
+        const gameData = [
+            { id: 1, c: "Costos Fijos", d: "No varían con el nivel de producción. Ej: Alquiler de bodega." },
+            { id: 2, c: "Costos Variables", d: "Cambian proporcionalmente al volumen. Ej: Embalaje." },
+            { id: 3, c: "Costos Directos", d: "Asignables a un producto específico con precisión. Ej: Materia prima." },
+            { id: 4, c: "Costos Indirectos", d: "Benefician a varios procesos. Ej: Luz del centro de distribución." },
+            { id: 5, c: "Costos Mixtos", d: "Tienen una base fija y una porción variable. Ej: Plan de telefonía." },
+            { id: 6, c: "Costeo por Trabajo", d: "Para pedidos personalizados únicos. Ej: Un buque a medida." },
+            { id: 7, c: "Costeo por Procesos", d: "Producción masiva de unidades iguales. Ej: Refinería." },
+            { id: 8, c: "Costo de Oportunidad", d: "Beneficio perdido al elegir una alternativa sobre otra." }
+        ];
+
+        let chart;
+        let activeLine = null;
+        let isDrawing = false;
+        let startNode = null;
+        let score = 0;
+        let matches = 0;
+        let permanentLines = [];
+        let currentlyClickedNode = null; // Soporte para clics sucesivos en móviles
+
+        // --- INICIALIZACIÓN ---
+        window.onload = () => {
+            initChart();
+            initGame();
+            window.addEventListener('resize', () => {
+                redrawLines();
+            });
+            // Soporte para cambios de orientación
+            window.addEventListener('orientationchange', () => {
+                setTimeout(redrawLines, 200);
+            });
+        };
+
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- LÓGICA DE GRÁFICOS ---
+        function initChart() {
+            const ctx = document.getElementById('costBehaviorChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 10}, (_, i) => (i + 1) * 500),
+                    datasets: [{
+                        label: 'Costo Total ($)',
+                        data: [],
+                        borderColor: '#0284c7',
+                        backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Costo Fijo Unitario ($/u)',
+                        data: [],
+                        borderColor: '#f59e0b',
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Costo Total ($)' } },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Costo Unitario ($/u)' } }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+            updateChartData(2500);
+        }
+
+        function updateChartData(currentVol) {
+            const fixedTotal = 10000;
+            const varUnit = 5;
+            const labels = chart.data.labels;
+            
+            const totalCosts = labels.map(v => fixedTotal + (v * varUnit));
+            const unitFixed = labels.map(v => fixedTotal / v);
+
+            chart.data.datasets[0].data = totalCosts;
+            chart.data.datasets[1].data = unitFixed;
+            chart.update();
+
+            document.getElementById('totalCostVal').innerText = `$${(fixedTotal + (currentVol * varUnit)).toLocaleString()}`;
+        }
+
+        document.getElementById('volumeSlider').oninput = (e) => {
+            const val = e.target.value;
+            document.getElementById('volumeVal').innerText = parseInt(val).toLocaleString();
+            updateChartData(parseInt(val));
+        };
+
+        // --- LÓGICA DEL JUEGO (RECONSTRUIDO CON ENFOQUE MOBILE) ---
+        function initGame() {
+            const colConceptos = document.getElementById('col-concepts');
+            const colDescripciones = document.getElementById('col-desc');
+
+            // Barajar listas de forma independiente
+            const concepts = [...gameData].sort(() => Math.random() - 0.5);
+            const descs = [...gameData].sort(() => Math.random() - 0.5);
+
+            colConceptos.innerHTML = concepts.map(item => `
+                <div id="card-concept-${item.id}" class="flex items-center justify-between bg-white/5 border border-white/10 p-2 sm:p-3.5 rounded-xl relative select-none">
+                    <span class="text-white text-[10px] sm:text-sm font-bold pr-2 sm:pr-4">${item.c}</span>
+                    <div class="source-node w-5 h-5 sm:w-6 sm:h-6 bg-sky-500 rounded-full cursor-crosshair flex items-center justify-center border-2 sm:border-4 border-slate-900 shadow-md flex-shrink-0 transition-transform hover:scale-110 active:scale-95" data-id="${item.id}">
+                        <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            colDescripciones.innerHTML = descs.map(item => `
+                <div id="card-desc-${item.id}" class="flex items-center gap-2 sm:gap-3 bg-white/5 border border-white/10 p-2 sm:p-3.5 rounded-xl relative select-none">
+                    <div class="target-node w-5 h-5 sm:w-6 sm:h-6 bg-slate-600 rounded-full cursor-pointer flex items-center justify-center border-2 sm:border-4 border-slate-900 shadow-md flex-shrink-0 transition-transform hover:scale-110 active:scale-95" data-id="${item.id}">
+                        <div class="w-1.5 h-1.5 bg-white/50 rounded-full"></div>
+                    </div>
+                    <span class="text-slate-300 text-[10px] sm:text-xs leading-normal font-light">${item.d}</span>
+                </div>
+            `).join('');
+
+            attachGameEvents();
+        }
+
+        // Obtener la posición central exacta del socket respecto al SVG
+        function getPos(el) {
+            const rect = el.getBoundingClientRect();
+            const svgRect = document.getElementById('game-svg').getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2 - svgRect.left,
+                y: rect.top + rect.height / 2 - svgRect.top
+            };
+        }
+
+        function attachGameEvents() {
+            const sources = document.querySelectorAll('.source-node');
+            const targets = document.querySelectorAll('.target-node');
+
+            // --- SOPORTE RATÓN (MOUSE) ---
+            sources.forEach(node => {
+                node.addEventListener('mousedown', (e) => startDraw(e, node));
+            });
+
+            window.addEventListener('mousemove', (e) => moveDraw(e));
+            window.addEventListener('mouseup', (e) => endDraw(e));
+
+            // --- SOPORTE TÁCTIL (MÓVILES / TABLETS) ---
+            sources.forEach(node => {
+                node.addEventListener('touchstart', (e) => {
+                    startDraw(e.touches[0], node);
+                    // Evitar recargar pantalla o gestos nativos de scroll mientras se arrastra la línea
+                    e.preventDefault();
+                }, { passive: false });
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (isDrawing) {
+                    moveDraw(e.touches[0]);
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            window.addEventListener('touchend', (e) => {
+                if (isDrawing) {
+                    endDraw(e.changedTouches[0]);
+                }
+            });
+
+            // --- SOPORTE DE CLIC SUCESIVO (TAP TO CONNECT COMO RESPALDO INFALIBLE) ---
+            sources.forEach(node => {
+                node.addEventListener('click', (e) => {
+                    handleTapNode(node, 'concept');
+                });
+            });
+
+            targets.forEach(node => {
+                node.addEventListener('click', (e) => {
+                    handleTapNode(node, 'desc');
+                });
+            });
+        }
+
+        // Permite conectar haciendo clic en la esfera azul y luego en la gris de forma consecutiva
+        function handleTapNode(node, type) {
+            if (node.classList.contains('matched')) return;
+
+            if (type === 'concept') {
+                // Desmarcar anterior si existía
+                if (currentlyClickedNode) {
+                    currentlyClickedNode.classList.remove('ring-4', 'ring-sky-400');
+                }
+                currentlyClickedNode = node;
+                node.classList.add('ring-4', 'ring-sky-400');
+            } else if (type === 'desc' && currentlyClickedNode) {
+                const sId = currentlyClickedNode.getAttribute('data-id');
+                const tId = node.getAttribute('data-id');
+
+                if (sId === tId) {
+                    // Acierto automático
+                    const posS = getPos(currentlyClickedNode);
+                    const posT = getPos(node);
+
+                    const finalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    finalLine.setAttribute("x1", posS.x);
+                    finalLine.setAttribute("y1", posS.y);
+                    finalLine.setAttribute("x2", posT.x);
+                    finalLine.setAttribute("y2", posT.y);
+                    finalLine.setAttribute("stroke", "#10b981");
+                    finalLine.setAttribute("stroke-width", "4");
+                    document.getElementById('game-svg').appendChild(finalLine);
+
+                    currentlyClickedNode.classList.remove('ring-4', 'ring-sky-400');
+                    currentlyClickedNode.classList.add('matched');
+                    node.classList.add('matched');
+
+                    // Estilo de tarjeta solucionada
+                    document.getElementById(`card-concept-${sId}`).classList.add('border-emerald-500/50', 'bg-emerald-950/20');
+                    document.getElementById(`card-desc-${tId}`).classList.add('border-emerald-500/50', 'bg-emerald-950/20');
+
+                    permanentLines.push({ s: currentlyClickedNode, t: node, el: finalLine });
+
+                    score += 100;
+                    matches++;
+                    updateGameUI();
+
+                    currentlyClickedNode = null;
+
+                    if (matches === gameData.length) {
+                        setTimeout(finishGame, 400);
+                    }
+                } else {
+                    // Feedback visual de error breve
+                    node.classList.add('bg-red-500', 'animate-shake');
+                    setTimeout(() => {
+                        node.classList.remove('bg-red-500', 'animate-shake');
+                    }, 500);
+                }
+            }
+        }
+
+        // --- LÓGICA DE DIBUJO CON SOPORTE COMPLETO ---
+        function startDraw(e, node) {
+            if (node.classList.contains('matched')) return;
+            isDrawing = true;
+            startNode = node;
+            const pos = getPos(node);
+            
+            activeLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            activeLine.setAttribute("x1", pos.x);
+            activeLine.setAttribute("y1", pos.y);
+            activeLine.setAttribute("x2", pos.x);
+            activeLine.setAttribute("y2", pos.y);
+            activeLine.setAttribute("stroke", "#0ea5e9");
+            activeLine.setAttribute("stroke-width", "4");
+            activeLine.setAttribute("class", "temp-line");
+            document.getElementById('game-svg').appendChild(activeLine);
+        }
+
+        function moveDraw(e) {
+            if (!isDrawing || !activeLine) return;
+            const svgRect = document.getElementById('game-svg').getBoundingClientRect();
+            activeLine.setAttribute("x2", e.clientX - svgRect.left);
+            activeLine.setAttribute("y2", e.clientY - svgRect.top);
+        }
+
+        // --- COMPORTAMIENTO DE COLISIÓN EN DROP ---
+        function endDraw(e) {
+            if (!isDrawing || !activeLine) return;
+            isDrawing = false;
+            
+            let matchedTarget = null;
+            const targets = document.querySelectorAll('.target-node');
+
+            // Colisión por proximidad física (Bounding Box Collision)
+            targets.forEach(target => {
+                if (target.classList.contains('matched')) return;
+                
+                const tRect = target.getBoundingClientRect();
+                // Margen de proximidad (28px de radio) para pantallas táctiles
+                const padding = 28; 
+                
+                if (
+                    e.clientX >= tRect.left - padding &&
+                    e.clientX <= tRect.right + padding &&
+                    e.clientY >= tRect.top - padding &&
+                    e.clientY <= tRect.bottom + padding
+                ) {
+                    matchedTarget = target;
+                }
+            });
+            
+            if (matchedTarget) {
+                const sId = startNode.getAttribute('data-id');
+                const tId = matchedTarget.getAttribute('data-id');
+
+                if (sId === tId) {
+                    // ACIERTO
+                    const pos = getPos(matchedTarget);
+                    activeLine.setAttribute("x2", pos.x);
+                    activeLine.setAttribute("y2", pos.y);
+                    activeLine.setAttribute("stroke", "#10b981");
+                    activeLine.removeAttribute("class"); // Quita la animación temporal
+                    activeLine.setAttribute("stroke-width", "4");
+                    
+                    startNode.classList.add('matched');
+                    matchedTarget.classList.add('matched');
+
+                    // Estilo de tarjeta solucionada
+                    document.getElementById(`card-concept-${sId}`).classList.add('border-emerald-500/50', 'bg-emerald-950/20');
+                    document.getElementById(`card-desc-${tId}`).classList.add('border-emerald-500/50', 'bg-emerald-950/20');
+                    
+                    permanentLines.push({ s: startNode, t: matchedTarget, el: activeLine });
+                    
+                    score += 100;
+                    matches++;
+                    updateGameUI();
+                    
+                    if (matches === gameData.length) {
+                        setTimeout(finishGame, 400);
+                    }
+                } else {
+                    activeLine.remove();
+                }
+            } else {
+                activeLine.remove();
+            }
+            activeLine = null;
+            startNode = null;
+        }
+
+        function updateGameUI() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('matches').innerText = `${matches}/8`;
+        }
+
+        function redrawLines() {
+            permanentLines.forEach(line => {
+                const p1 = getPos(line.s);
+                const p2 = getPos(line.t);
+                line.el.setAttribute("x1", p1.x);
+                line.el.setAttribute("y1", p1.y);
+                line.el.setAttribute("x2", p2.x);
+                line.el.setAttribute("y2", p2.y);
+            });
+        }
+
+        function finishGame() {
+            const resultsSec = document.getElementById('results');
+            resultsSec.classList.remove('hidden');
+            scrollToSection('results');
+        }
+
+        function resetGame() {
+            // Limpiar variables de juego
+            score = 0;
+            matches = 0;
+            permanentLines = [];
+            currentlyClickedNode = null;
+            document.getElementById('game-svg').innerHTML = '';
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('score').innerText = "0";
+            document.getElementById('matches').innerText = "0/8";
+            
+            // Re-barajar e inicializar
+            initGame();
+            scrollToSection('lab');
+        }
+
+        // --- EXPORTACIÓN ---
+        function generatePDF() {
+            const name = document.getElementById('userName').value || "Profesional de SCM";
+            document.getElementById('cert-user-name').innerText = name;
+            document.getElementById('cert-date').innerText = new Date().toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            const element = document.getElementById('cert-template');
+            const hiddenContainer = document.getElementById('cert-container');
+            
+            // Traer contenedor temporalmente a coordenadas visuales para captura limpia
+            hiddenContainer.style.left = "0px";
+            
+            const opt = {
+                margin: 0,
+                filename: `Certificado_SCM_Logic_${name.replace(/\s+/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'px', format: [800, 600], orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Esconder de vuelta tras la exportación exitosa
+                hiddenContainer.style.left = "-9999px";
+            }).catch(err => {
+                hiddenContainer.style.left = "-9999px";
+                console.error("Falla en la exportación del certificado:", err);
+            });
+        }
+
+        // --- CAMBIAR MODO OSCURO / CLARO ---
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('theme-icon');
+            if (isDark) {
+                icon.className = "fas fa-sun text-sm text-amber-400";
+            } else {
+                icon.className = "fas fa-moon text-sm";
+            }
+        }
+    </script>
+</body>
+</html>
